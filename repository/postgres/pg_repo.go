@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"net"
 	"time"
 	"uniback/utils"
 
@@ -56,7 +57,19 @@ func New(ctx context.Context, cfg PgConfig) *PostgresRepository {
 	}
 
 	if err := db.PingContext(connCtx); err != nil {
-		log.Critical("Cann't ping db: %w", err)
+		log.Critical("Cann't ping db")
+		if opErr, ok := err.(*net.OpError); ok {
+			log.Trace("Operation: %s", opErr.Op)
+			log.Trace("Net: %s", opErr.Net)
+			log.Trace("Address: %v", opErr.Addr)
+			log.Trace("Error: %s", opErr.Err)
+
+			if opErr.Err != nil {
+				log.Trace("Error details: %+v", opErr.Err)
+			}
+		} else {
+			log.Trace("DbError: %w", err)
+		}
 		db.Close()
 		return nil
 	}

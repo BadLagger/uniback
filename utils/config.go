@@ -22,10 +22,10 @@ func CfgLoad(app string) *Config {
 	return &Config{
 		AppName:         app,
 		DbHost:          getEnv("DB_HOST", "localhost"),
-		DbPort:          getEnv("DB_PORT", "8080"),
-		DbUsername:      getEnv("DB_USERNAME", "postgres"),
-		DbPassword:      getEnv("DB_PASSWORD", ""),
-		DbName:          getEnv("DB_NAME", ""),
+		DbPort:          getEnv("DB_PORT", "5433"),
+		DbUsername:      getEnv("DB_USERNAME", "uniback"),
+		DbPassword:      getEnv("DB_PASSWORD", "112233"),
+		DbName:          getEnv("DB_NAME", "bank"),
 		DbCtxTimeoutSec: getEnvInt("DB_CTX_TOUT_SEC", 3),
 	}
 }

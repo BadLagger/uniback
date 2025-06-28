@@ -40,5 +40,4 @@ func main() {
 		return
 	}
 	defer DataBase.Close()
-
 }
