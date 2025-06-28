@@ -5,17 +5,11 @@ import (
 )
 
 func main() {
-	logger := utils.GlobalLogger()
+	logger := utils.GlobalLogger().SetLevel(utils.Debug)
 
 	logger.Info("Start APP!!!")
-	defer logger.Info("App Done!!!")
+	defer logger.Info("APP Done!!!")
 
-	count := 1
-	logger.Debug("Debug message %d", count)
-	count += 1
-
-	logger.Debug("Debug message %d", count)
-
-	count += 1
-	logger.Critical("Debug message %d", count)
+	cfg := utils.CfgLoad("UniBack")
+	logger.Info("Set app name: %s", cfg.AppName)
 }
