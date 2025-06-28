@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	logger := utils.NewLogger().SetLevel(utils.All)
+	logger := utils.GlobalLogger()
 
 	logger.Info("Start APP!!!")
 	defer logger.Info("App Done!!!")

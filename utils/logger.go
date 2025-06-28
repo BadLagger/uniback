@@ -3,6 +3,7 @@ package utils
 import (
 	"log"
 	"strings"
+	"sync"
 )
 
 type LogLevel byte
@@ -100,4 +101,16 @@ func (l Logger) Error(message string, args ...any) {
 
 func (l Logger) Critical(message string, args ...any) {
 	l.Log(Critical, message, args...)
+}
+
+var (
+	instance *Logger
+	once     sync.Once
+)
+
+func GlobalLogger() *Logger {
+	once.Do(func() {
+		instance = NewLogger()
+	})
+	return instance
 }
