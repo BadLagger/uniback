@@ -59,6 +59,7 @@ func (l LogLevel) String() string {
 
 type Logger struct {
 	level LogLevel
+	mtx   sync.RWMutex
 }
 
 func NewLogger() *Logger {
@@ -68,38 +69,45 @@ func NewLogger() *Logger {
 }
 
 func (l *Logger) SetLevel(level LogLevel) *Logger {
+	l.mtx.Lock()
+	defer l.mtx.Unlock()
 	l.level = level
 	return l
 }
 
-func (l Logger) GetLevel() LogLevel {
+func (l *Logger) GetLevel() LogLevel {
+	l.mtx.RLock()
+	defer l.mtx.RUnlock()
 	return l.level
 }
 
-func (l Logger) Log(level LogLevel, message string, args ...any) {
-	if (l.GetLevel() != Off && l.GetLevel() <= level) || (l.GetLevel() == All) {
-		log_new_message := "[" + level.String() + "]: " + message
-		log.Printf(log_new_message, args...)
+func (l *Logger) Log(level LogLevel, message string, args ...any) {
+	l.mtx.RLock()
+	shouldLog := (l.GetLevel() != Off && l.GetLevel() <= level) || (l.GetLevel() == All)
+	l.mtx.RUnlock()
+
+	if shouldLog {
+		log.Printf("["+level.String()+"]: "+message, args...)
 	}
 }
 
-func (l Logger) Debug(message string, args ...any) {
+func (l *Logger) Debug(message string, args ...any) {
 	l.Log(Debug, message, args...)
 }
 
-func (l Logger) Info(message string, args ...any) {
+func (l *Logger) Info(message string, args ...any) {
 	l.Log(Info, message, args...)
 }
 
-func (l Logger) Trace(message string, args ...any) {
+func (l *Logger) Trace(message string, args ...any) {
 	l.Log(Trace, message, args...)
 }
 
-func (l Logger) Error(message string, args ...any) {
+func (l *Logger) Error(message string, args ...any) {
 	l.Log(Error, message, args...)
 }
 
-func (l Logger) Critical(message string, args ...any) {
+func (l *Logger) Critical(message string, args ...any) {
 	l.Log(Critical, message, args...)
 }
 
