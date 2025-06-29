@@ -22,9 +22,14 @@ type PgConfig struct {
 	Password   string
 	Name       string
 	CtxSecTout int
+	SslMode    string
 }
 
 func PgConfigFromConfig(cfg utils.Config) PgConfig {
+	sslModeStr := "disable"
+	if cfg.DbSslMode {
+		sslModeStr = "enable"
+	}
 	return PgConfig{
 		Host:       cfg.DbHost,
 		Port:       cfg.DbPort,
@@ -32,6 +37,7 @@ func PgConfigFromConfig(cfg utils.Config) PgConfig {
 		Password:   cfg.DbPassword,
 		Name:       cfg.DbName,
 		CtxSecTout: cfg.DbCtxTimeoutSec,
+		SslMode:    sslModeStr,
 	}
 }
 
@@ -40,7 +46,8 @@ func (cfg *PgConfig) String() string {
 		" port=" + cfg.Port +
 		" user=" + cfg.User +
 		" password=" + cfg.Password +
-		" dbname=" + cfg.Name
+		" dbname=" + cfg.Name +
+		" sslmode=" + cfg.SslMode
 }
 
 func New(ctx context.Context, cfg PgConfig) *PostgresRepository {
@@ -49,7 +56,7 @@ func New(ctx context.Context, cfg PgConfig) *PostgresRepository {
 
 	connCtx, cancel := context.WithTimeout(ctx, time.Duration(cfg.CtxSecTout)*time.Second)
 	defer cancel()
-
+	log.Debug("SSL open string: %s", cfg.String())
 	db, err := sql.Open("postgres", cfg.String())
 	if err != nil {
 		log.Critical("Cann't connect to to db: %w", err)

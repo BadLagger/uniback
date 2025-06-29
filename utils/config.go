@@ -14,6 +14,7 @@ type Config struct {
 	DbPassword      string
 	DbName          string
 	DbCtxTimeoutSec int
+	DbSslMode       bool
 }
 
 func CfgLoad(app string) *Config {
@@ -22,11 +23,12 @@ func CfgLoad(app string) *Config {
 	return &Config{
 		AppName:         app,
 		DbHost:          getEnv("DB_HOST", "localhost"),
-		DbPort:          getEnv("DB_PORT", "5433"),
+		DbPort:          getEnv("DB_PORT", "5432"),
 		DbUsername:      getEnv("DB_USERNAME", "uniback"),
 		DbPassword:      getEnv("DB_PASSWORD", "112233"),
 		DbName:          getEnv("DB_NAME", "bank"),
 		DbCtxTimeoutSec: getEnvInt("DB_CTX_TOUT_SEC", 3),
+		DbSslMode:       getEnvBool("DB_SSL_MODE", false),
 	}
 }
 
@@ -62,5 +64,18 @@ func getEnvInt(key string, defaultValue int) int {
 		GlobalLogger().Error("failed to parse %s : %w", key, err)
 	}
 	GlobalLogger().Debug("%s set default: %d", key, defaultValue)
+	return defaultValue
+}
+
+func getEnvBool(key string, defaultValue bool) bool {
+	if strValue, exists := os.LookupEnv(key); exists {
+		boolValue, err := strconv.ParseBool(strValue)
+		if err == nil {
+			GlobalLogger().Debug("%s set value: %t", key, boolValue)
+			return boolValue
+		}
+		GlobalLogger().Error("failed to parse %s : %w", key, err)
+	}
+	GlobalLogger().Debug("%s set default: %t", key, defaultValue)
 	return defaultValue
 }
