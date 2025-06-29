@@ -3,19 +3,25 @@ package repository
 import (
 	"context"
 	"uniback/dto"
-	"uniback/models"
+	//"uniback/models"
 )
 
 type Repository interface {
 	// User methods
-	CreateUser(ctx context.Context, user dto.UserCreateRequest) (int, error)
-	FindUserByUsername(ctx context.Context, username string) (*models.User, error)
+	IsUserExistsByUsernameEmailPhone(ctx context.Context)
+	//CreateUser(ctx context.Context, user dto.UserCreateRequest) (int, error)
+	//FindUserByUsername(ctx context.Context, username string) (*models.User, error)
 
 	// Balance methods
-	GetBalanceByUsername(ctx context.Context, username string) (*models.Balance, error)
-	UpdateBalance(ctx context.Context, username string, amount float64) error
+	//GetBalanceByUsername(ctx context.Context, username string) (*models.Balance, error)
+	//UpdateBalance(ctx context.Context, username string, amount float64) error
 
 	// Connection managment
 	Close() error
 	Ping(ctx context.Context) error
+}
+
+type UserRepository interface {
+	IsUserExistsByUsernameEmailPhone(ctx context.Context, userDto dto.UserCreateRequest) (username, email, phone bool, err error)
+	CreateUser(ctx context.Context, userDto dto.UserCreateRequest) error
 }

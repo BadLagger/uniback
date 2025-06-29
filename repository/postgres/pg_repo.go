@@ -3,8 +3,10 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net"
 	"time"
+	"uniback/dto"
 	"uniback/utils"
 
 	_ "github.com/lib/pq"
@@ -99,6 +101,40 @@ func (r *PostgresRepository) Close() error {
 func (r *PostgresRepository) Ping(ctx context.Context) error {
 	utils.GlobalLogger().Info("Ping DB!")
 	return r.db.PingContext(ctx)
+}
+
+func (r *PostgresRepository) IsUserExistsByUsernameEmailPhone(ctx context.Context, userDto dto.UserCreateRequest) (username, email, phone bool, err error) {
+	query := `
+		SELECT
+			EXISTS(SELECT 1 FROM users WHERE username = $1),
+			EXISTS(SELECT 1 FROM users WHERE email    = $2),
+			EXISTS(SELECT 1 FROM users WHERE phone    = $3)`
+
+	utils.GlobalLogger().Debug("Try to check Username %s with Email %s and Phone %s", userDto.Username, userDto.Email, userDto.Phone)
+	err = r.db.QueryRowContext(ctx, query, userDto.Username, userDto.Email, userDto.Phone).Scan(
+		&username,
+		&email,
+		&phone,
+	)
+	if err != nil {
+		return false, false, false, fmt.Errorf("failed to check user existence: %w", err)
+	}
+
+	return username, email, phone, nil
+}
+
+func (r *PostgresRepository) CreateUser(ctx context.Context, userDto dto.UserCreateRequest) error {
+	query := `
+		INSERT INTO 
+			users (username, password, email, phone)
+		VALUES ($1, $2, $3, $4)
+	`
+
+	utils.GlobalLogger().Debug("Try to create %s with Email %s and Phone %s", userDto.Username, userDto.Email, userDto.Phone)
+
+	_, err := r.db.ExecContext(ctx, query, userDto.Username, userDto.Password, userDto.Email, userDto.Phone)
+
+	return err
 }
 
 // PRIVATE SECTION

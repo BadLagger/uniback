@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"uniback/controller"
 	"uniback/repository/postgres"
 	"uniback/utils"
 )
@@ -21,18 +23,6 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		select {
-		case <-quit:
-			logger.Info("Signal to escape! Shutdown")
-		case <-ctx.Done():
-			logger.Error("Context DONE! It wouldn't be happened!!!")
-		}
-	}()
-
 	DataBase := postgres.New(ctx, postgres.PgConfigFromConfig(*cfg))
 
 	if DataBase == nil {
@@ -40,4 +30,28 @@ func main() {
 		return
 	}
 	defer DataBase.Close()
+
+	authController := controller.NewAuthController(DataBase)
+	http.HandleFunc("/register", authController.RegistrationHandler)
+
+	server := &http.Server{Addr: ":8089"}
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		select {
+		case <-quit:
+			server.Shutdown(ctx)
+			logger.Info("Signal to escape! Shutdown")
+		case <-ctx.Done():
+			logger.Error("Context DONE! It wouldn't be happened!!!")
+		}
+	}()
+
+	logger.Info("Try to start server...")
+	err := server.ListenAndServe()
+	if err != nil {
+		logger.Critical("Server can't run: %w", err)
+	}
 }
