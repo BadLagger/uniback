@@ -82,11 +82,11 @@ func New(ctx context.Context, cfg PgConfig) *PostgresRepository {
 	}
 
 	log.Info("Postgres Ping OK!")
-	/*if err := initSchema(ctx, db); err != nil {
+	if err := initSchema(ctx, db); err != nil {
 		log.Critical("Cann't init db schema: %w", err)
 		db.Close()
 		return nil
-	}*/
+	}
 
 	return &PostgresRepository{db: db}
 }
