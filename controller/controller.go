@@ -2,21 +2,25 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"uniback/dto"
 	"uniback/repository"
 	"uniback/utils"
 
+	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthController struct {
+	validate validator.Validate
 	userRepo repository.UserRepository
 }
 
 func NewAuthController(u repository.UserRepository) *AuthController {
 	return &AuthController{
 		userRepo: u,
+		validate: *validator.New(),
 	}
 }
 
@@ -39,6 +43,29 @@ func (c *AuthController) RegistrationHandler(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		log.Error("Json parse error: %w", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := c.validate.Struct(user); err != nil {
+		var validationErrors []string
+		for _, err := range err.(validator.ValidationErrors) {
+			log.Error("Field %s failed validator (%s = %s)",
+				err.Field(),
+				err.Tag(),
+				err.Param())
+			validationErrors = append(validationErrors, fmt.Sprintf(
+				"Field %s failed validator (%s = %s)",
+				err.Field(),
+				err.Tag(),
+				err.Param(),
+			))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error":   "Validation failed",
+			"details": validationErrors,
+		})
 		return
 	}
 
