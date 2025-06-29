@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"uniback/dto"
+	"uniback/models"
 	//"uniback/models"
 )
 
@@ -24,4 +25,5 @@ type Repository interface {
 type UserRepository interface {
 	IsUserExistsByUsernameEmailPhone(ctx context.Context, userDto dto.UserCreateRequest) (username, email, phone bool, err error)
 	CreateUser(ctx context.Context, userDto dto.UserCreateRequest) error
+	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
 }

@@ -3,10 +3,12 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net"
 	"time"
 	"uniback/dto"
+	"uniback/models"
 	"uniback/utils"
 
 	_ "github.com/lib/pq"
@@ -135,6 +137,35 @@ func (r *PostgresRepository) CreateUser(ctx context.Context, userDto dto.UserCre
 	_, err := r.db.ExecContext(ctx, query, userDto.Username, userDto.Password, userDto.Email, userDto.Phone)
 
 	return err
+}
+
+func (r *PostgresRepository) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
+	query := `
+		SELECT
+			id, username, password, email, phone
+		FROM
+			users
+		WHERE username = $1
+	`
+
+	var user models.User
+
+	err := r.db.QueryRowContext(ctx, query, username).Scan(
+		&user.ID,
+		&user.Name,
+		&user.Password,
+		&user.Email,
+		&user.Phone,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+
+	return &user, nil
 }
 
 // PRIVATE SECTION
