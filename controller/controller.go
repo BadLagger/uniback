@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -16,7 +17,6 @@ import (
 
 type JWTClaims struct {
 	Username string
-	UserID   int
 	jwt.StandardClaims
 }
 
@@ -151,7 +151,6 @@ func (c *AuthController) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, JWTClaims{
 		Username: userFromDb.Name,
-		UserID:   userFromDb.ID,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
 			IssuedAt:  time.Now().Unix(),
@@ -175,6 +174,79 @@ func (c *AuthController) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		"message": "successful",
 		"user":    user.Username,
 	})
+}
+
+func (c *AuthController) AccountsHandler(w http.ResponseWriter, r *http.Request) {
+	log := utils.GlobalLogger()
+
+	log.Info("Get http request for Account from: %s", r.RemoteAddr)
+
+	if r.Method != http.MethodGet {
+		log.Error("Wrong method!")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value("jwtClaims").(*JWTClaims)
+	if !ok {
+		log.Critical("No jwt claims in context")
+		http.Error(w, "Failed to get claims", http.StatusInternalServerError)
+		return
+	}
+
+	log.Info("Username %s request for accounts", claims.Username)
+
+	w.Header().Set("Authorization", r.Header.Get("Authorization"))
+	w.Header().Set("Content-Type", "application/json")
+
+	json.NewEncoder(w).Encode(map[string]string{
+		"accounts_num": "0",
+	})
+}
+
+func (ac *AuthController) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log := utils.GlobalLogger()
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			log.Error("No autorization token")
+			http.Error(w, "Authorization header is required", http.StatusUnauthorized)
+			return
+		}
+
+		tokenString := authHeader[len("Bearer "):]
+		claims := &JWTClaims{}
+
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+			return []byte(ac.secretKey), nil
+		})
+
+		log.Debug("Username from token: %s", claims.Username)
+
+		if err != nil || !token.Valid {
+			log.Error("Invalid token")
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		isUser, err := ac.userRepo.IsUserExists(r.Context(), claims.Username)
+
+		if err != nil {
+			log.Critical("DB Error: %w", err)
+			http.Error(w, "DB Error", http.StatusInternalServerError)
+			return
+		}
+
+		if !isUser {
+			log.Error("Wrong token from user %s", claims.Username)
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "jwtClaims", claims)
+
+		next(w, r.WithContext(ctx))
+	}
 }
 
 func (c *AuthController) validateRequest(w http.ResponseWriter, s interface{}) error {

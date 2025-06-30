@@ -34,6 +34,8 @@ func main() {
 	authController := controller.NewAuthController(DataBase, cfg.JwtKey)
 	http.HandleFunc("/register", authController.RegistrationHandler)
 	http.HandleFunc("/login", authController.LoginHandler)
+	//
+	http.HandleFunc("/accounts", authController.AuthMiddleware(authController.AccountsHandler))
 
 	server := &http.Server{Addr: cfg.HostAddress}
 

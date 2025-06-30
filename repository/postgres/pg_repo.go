@@ -168,4 +168,27 @@ func (r *PostgresRepository) GetUserByUsername(ctx context.Context, username str
 	return &user, nil
 }
 
+func (r *PostgresRepository) IsUserExists(ctx context.Context, username string) (bool, error) {
+	query := `
+		SELECT COUNT(*) FROM users WHERE username = $1
+	`
+
+	var count int
+
+	err := r.db.QueryRowContext(ctx, query, username).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	if count == 0 {
+		return false, nil
+	}
+
+	if count > 1 {
+		return false, fmt.Errorf("Dublicated names in DB: %s (count = %d)", username, count)
+	}
+
+	return true, nil
+}
+
 // PRIVATE SECTION

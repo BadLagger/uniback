@@ -26,4 +26,5 @@ type UserRepository interface {
 	IsUserExistsByUsernameEmailPhone(ctx context.Context, userDto dto.UserCreateRequest) (username, email, phone bool, err error)
 	CreateUser(ctx context.Context, userDto dto.UserCreateRequest) error
 	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
+	IsUserExists(ctx context.Context, username string) (bool, error)
 }
