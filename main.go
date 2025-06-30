@@ -31,14 +31,11 @@ func main() {
 	}
 	defer DataBase.Close()
 
-	authController := controller.NewAuthController(DataBase, "mifi_secret_key")
+	authController := controller.NewAuthController(DataBase, cfg.JwtKey)
 	http.HandleFunc("/register", authController.RegistrationHandler)
 	http.HandleFunc("/login", authController.LoginHandler)
-	/*http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Login endpoint works"))
-	})*/
 
-	server := &http.Server{Addr: ":8089"}
+	server := &http.Server{Addr: cfg.HostAddress}
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

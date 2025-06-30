@@ -13,6 +13,8 @@ type Config struct {
 	DbUsername      string
 	DbPassword      string
 	DbName          string
+	JwtKey          string
+	HostAddress     string
 	DbCtxTimeoutSec int
 	DbSslMode       bool
 }
@@ -27,6 +29,8 @@ func CfgLoad(app string) *Config {
 		DbUsername:      getEnv("DB_USERNAME", "uniback"),
 		DbPassword:      getEnv("DB_PASSWORD", "112233"),
 		DbName:          getEnv("DB_NAME", "bank"),
+		JwtKey:          getEnv("JWT_KEY", "mifi_secret_key"),
+		HostAddress:     getEnv("HOST_ADDRESS", ":8089"),
 		DbCtxTimeoutSec: getEnvInt("DB_CTX_TOUT_SEC", 3),
 		DbSslMode:       getEnvBool("DB_SSL_MODE", false),
 	}
