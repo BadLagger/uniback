@@ -1,0 +1,3 @@
+ALTER TABLE users 
+ADD COLUMN phone VARCHAR(20) DEFAULT '',
+ADD CONSTRAINT phone_unique UNIQUE (phone); 
