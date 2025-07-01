@@ -353,13 +353,12 @@ func (r *PostgresRepository) GetAccountByUsername(ctx context.Context, account s
 	return &resultAccount, nil
 }
 
-func (r *PostgresRepository) DepositToAccountTransaction(ctx context.Context, acc models.Account, amount float64, fee float64) (*models.Account, error) {
+func (r *PostgresRepository) UpdateAccountTransaction(ctx context.Context, acc models.Account, amount float64, fee float64, trsType string) (*models.Account, error) {
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	acc.Balance += amount
 
 	_, err = tx.Exec(
 		"UPDATE accounts SET balance = $1 WHERE id = $2",
@@ -372,8 +371,9 @@ func (r *PostgresRepository) DepositToAccountTransaction(ctx context.Context, ac
 	}
 
 	_, err = tx.Exec(
-		"INSERT INTO transactions (account_id, type, amount, fee) VALUES($1, 'deposit' , $2, $3)",
+		"INSERT INTO transactions (account_id, type, amount, fee) VALUES($1, $2 , $3, $4)",
 		acc.Id,
+		trsType,
 		amount,
 		fee,
 	)

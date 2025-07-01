@@ -7,4 +7,5 @@ import (
 
 type Service interface {
 	DepositTransaction(ctx context.Context, acc models.Account, amount float64) (*models.Account, error)
+	WithdrawalTransaction(ctx context.Context, acc models.Account, amount float64) (*models.Account, error)
 }

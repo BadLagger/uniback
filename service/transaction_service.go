@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"uniback/models"
 	"uniback/repository"
 )
@@ -25,5 +26,23 @@ func NewTransactionService(u repository.UserRepository) *TransactionService {
 }
 
 func (s *TransactionService) DepositTransaction(ctx context.Context, acc models.Account, amount float64) (*models.Account, error) {
-	return s.userRepo.DepositToAccountTransaction(ctx, acc, amount, s.cfg.globalFee)
+
+	if (amount - s.cfg.globalFee) <= 0 {
+		return nil, fmt.Errorf("not enought money for fee on this transaction")
+	}
+
+	acc.Balance += (amount - s.cfg.globalFee)
+
+	return s.userRepo.UpdateAccountTransaction(ctx, acc, amount, s.cfg.globalFee, "deposit")
+}
+
+func (s *TransactionService) WithdrawalTransaction(ctx context.Context, acc models.Account, amount float64) (*models.Account, error) {
+
+	if (acc.Balance - (amount + s.cfg.globalFee)) < 0 {
+		return nil, fmt.Errorf("not enought money for transaction")
+	}
+
+	acc.Balance -= (amount + s.cfg.globalFee)
+
+	return s.userRepo.UpdateAccountTransaction(ctx, acc, amount, s.cfg.globalFee, "withdrawal")
 }

@@ -34,5 +34,5 @@ type UserRepository interface {
 	CreateAccount(ctx context.Context, acc models.Account) (*dto.AccountResponseDto, error)
 	GetAccountByUsername(ctx context.Context, account string, username string) (*models.Account, error)
 
-	DepositToAccountTransaction(ctx context.Context, acc models.Account, amount float64, fee float64) (*models.Account, error)
+	UpdateAccountTransaction(ctx context.Context, acc models.Account, amount float64, fee float64, trsType string) (*models.Account, error)
 }
