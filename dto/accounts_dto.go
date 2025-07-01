@@ -1,6 +1,9 @@
 package dto
 
-import "time"
+import (
+	"time"
+	"uniback/models"
+)
 
 type AccountResponseDto struct {
 	AccountNumber string    `json:"account_number"`
@@ -13,4 +16,18 @@ type AccountResponseDto struct {
 type AccountsResponseDto struct {
 	AccountsNum int                  `json:"accounts_num"`
 	Acounts     []AccountResponseDto `json:"accounts"`
+}
+
+type AccountCreateRequestDto struct {
+	AccountType string `json:"account_type" validate:"required,oneof=debit credit"`
+}
+
+func AccountToAccountReponseDto(acc *models.Account) *AccountResponseDto {
+	return &AccountResponseDto{
+		AccountNumber: acc.AccountNumber,
+		AccountType:   acc.AccountType,
+		Balance:       acc.Balance,
+		OpeningDate:   acc.OpeningDate,
+		Status:        acc.Status,
+	}
 }

@@ -191,6 +191,25 @@ func (r *PostgresRepository) IsUserExists(ctx context.Context, username string) 
 	return true, nil
 }
 
+func (r *PostgresRepository) GetUserId(ctx context.Context, username string) (int, error) {
+	query := `
+		SELECT
+			id
+		FROM
+			users
+		WHERE username = $1
+	`
+
+	var userId int
+
+	err := r.db.QueryRowContext(ctx, query, username).Scan(&userId)
+	if err != nil {
+		return 0, err
+	}
+
+	return userId, nil
+}
+
 func (r *PostgresRepository) GetAccountsByUsername(ctx context.Context, username string) (*dto.AccountsResponseDto, error) {
 	const query = `
         SELECT a.account_number, a.account_type, 
@@ -233,6 +252,75 @@ func (r *PostgresRepository) GetAccountsByUsername(ctx context.Context, username
 	}
 
 	return &response, nil
+}
+
+func (r *PostgresRepository) IsAccountExits(ctx context.Context, accountNumber string) (bool, error) {
+	query := `
+		SELECT COUNT(*) FROM accounts WHERE account_number = $1
+	`
+
+	var count int
+
+	err := r.db.QueryRowContext(ctx, query, accountNumber).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	if count == 0 {
+		return false, nil
+	}
+
+	if count > 1 {
+		return false, fmt.Errorf("Dublicated names in DB: %s (count = %d)", accountNumber, count)
+	}
+
+	return true, nil
+}
+
+func (r *PostgresRepository) GetAccountByNumber(ctx context.Context, id string) (*models.Account, error) {
+	query := `
+		SELECT
+			id, user_id, account_number, account_type, balance, opening_date, status
+		FROM
+			accounts
+		WHERE account_number = $1
+	`
+
+	var Account models.Account
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
+		&Account.Id,
+		&Account.UserId,
+		&Account.AccountNumber,
+		&Account.AccountType,
+		&Account.Balance,
+		&Account.OpeningDate,
+		&Account.Status)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Account, nil
+}
+
+func (r *PostgresRepository) CreateAccount(ctx context.Context, acc models.Account) (*dto.AccountResponseDto, error) {
+	query := `
+		INSERT INTO 
+			accounts (user_id, account_number, account_type, status)
+		VALUES ($1, $2, $3, $4)
+	`
+
+	_, err := r.db.ExecContext(ctx, query, acc.UserId, acc.AccountNumber, acc.AccountType, acc.Status)
+
+	if err != nil {
+		return nil, err
+	}
+
+	account, err := r.GetAccountByNumber(ctx, acc.AccountNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	return dto.AccountToAccountReponseDto(account), nil
 }
 
 // PRIVATE SECTION

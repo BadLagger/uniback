@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 	"uniback/dto"
+	"uniback/models"
 	"uniback/repository"
 	"uniback/utils"
 
@@ -204,6 +205,88 @@ func (c *AuthController) AccountsHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	jsonData, err := json.Marshal(accounts)
+	if err != nil {
+		log.Critical("Encode accounts to json error: %w", err)
+		http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Authorization", r.Header.Get("Authorization"))
+	w.Header().Set("Content-Type", "application/json")
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonData)
+}
+
+func (c *AuthController) AccountsCreateHandler(w http.ResponseWriter, r *http.Request) {
+	log := utils.GlobalLogger()
+	log.Info("Get http request for Createnig Account from: %s", r.RemoteAddr)
+
+	if r.Method != http.MethodPost {
+		log.Error("Wrong method!")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value("jwtClaims").(*JWTClaims)
+	if !ok {
+		log.Critical("No jwt claims in context")
+		http.Error(w, "Failed to get claims", http.StatusInternalServerError)
+		return
+	}
+
+	var accountRequest dto.AccountCreateRequestDto
+
+	err := json.NewDecoder(r.Body).Decode(&accountRequest)
+	if err != nil {
+		log.Error("Json parse error: %w", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err = c.validateRequest(w, accountRequest); err != nil {
+		return
+	}
+
+	userId, err := c.userRepo.GetUserId(r.Context(), claims.Username)
+
+	if err != nil {
+		log.Error("Can't get user id from DB: %w", err)
+		http.Error(w, "Failed to get user id from DB", http.StatusBadRequest)
+		return
+	}
+
+	newAccountNumber := models.GenerateAccount()
+	for {
+		isExists, err := c.userRepo.IsAccountExits(r.Context(), newAccountNumber)
+
+		if err != nil {
+			log.Critical("Can't check account existence in DB: %w", err)
+			http.Error(w, "Can't check account existence in DB", http.StatusInternalServerError)
+			return
+		}
+
+		if !isExists {
+			break
+		}
+		newAccountNumber = models.GenerateAccount()
+	}
+
+	log.Debug("Cenerate new number: %s", newAccountNumber)
+
+	responseDto, err := c.userRepo.CreateAccount(r.Context(), models.Account{
+		UserId:        userId,
+		AccountNumber: newAccountNumber,
+		AccountType:   accountRequest.AccountType,
+		Status:        "active",
+	})
+
+	if err != nil {
+		log.Error("Create Account error: %w", err)
+		http.Error(w, "Can't create account!", http.StatusBadRequest)
+	}
+
+	jsonData, err := json.Marshal(responseDto)
 	if err != nil {
 		log.Critical("Encode accounts to json error: %w", err)
 		http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)

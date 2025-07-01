@@ -36,6 +36,7 @@ func main() {
 	http.HandleFunc("/login", authController.LoginHandler)
 	//
 	http.HandleFunc("/accounts", authController.AuthMiddleware(authController.AccountsHandler))
+	http.HandleFunc("/accounts/new", authController.AuthMiddleware(authController.AccountsCreateHandler))
 
 	server := &http.Server{Addr: cfg.HostAddress}
 

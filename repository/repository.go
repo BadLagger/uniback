@@ -27,5 +27,9 @@ type UserRepository interface {
 	CreateUser(ctx context.Context, userDto dto.UserCreateRequest) error
 	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
 	IsUserExists(ctx context.Context, username string) (bool, error)
+	GetUserId(ctx context.Context, username string) (int, error)
+
 	GetAccountsByUsername(ctx context.Context, username string) (*dto.AccountsResponseDto, error)
+	IsAccountExits(ctx context.Context, accountNumber string) (bool, error)
+	CreateAccount(ctx context.Context, acc models.Account) (*dto.AccountResponseDto, error)
 }
