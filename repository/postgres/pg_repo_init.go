@@ -6,6 +6,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"sort"
 	"strings"
 	"uniback/utils"
 )
@@ -52,7 +53,16 @@ func readMigrationFiles() (map[string]string, error) {
 func applyMigrations(ctx context.Context, db *sql.DB, migrations map[string]string) error {
 	log := utils.GlobalLogger()
 
-	for name, sql := range migrations {
+	keys := make([]string, 0, len(migrations))
+	for name := range migrations {
+		keys = append(keys, name)
+	}
+	sort.Strings(keys)
+
+	for _, name := range keys {
+
+		sql := migrations[name]
+
 		var applied bool
 		err := db.QueryRowContext(ctx,
 			"SELECT EXISTS (SELECT 1 FROM migrations WHERE name = $1)", name).Scan(&applied)
