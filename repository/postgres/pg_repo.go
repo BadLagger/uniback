@@ -191,4 +191,48 @@ func (r *PostgresRepository) IsUserExists(ctx context.Context, username string) 
 	return true, nil
 }
 
+func (r *PostgresRepository) GetAccountsByUsername(ctx context.Context, username string) (*dto.AccountsResponseDto, error) {
+	const query = `
+        SELECT a.account_number, a.account_type, 
+               a.balance, a.opening_date, a.status
+        FROM accounts a
+        JOIN users u ON a.user_id = u.id
+        WHERE u.username = $1
+        ORDER BY a.opening_date DESC
+    `
+
+	rows, err := r.db.Query(query, username)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query user accounts: %w", err)
+	}
+	defer rows.Close()
+
+	var accounts []dto.AccountResponseDto
+	for rows.Next() {
+		var acc dto.AccountResponseDto
+		err := rows.Scan(
+			&acc.AccountNumber,
+			&acc.AccountType,
+			&acc.Balance,
+			&acc.OpeningDate,
+			&acc.Status,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan account: %w", err)
+		}
+		accounts = append(accounts, acc)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	response := dto.AccountsResponseDto{
+		AccountsNum: len(accounts),
+		Acounts:     accounts,
+	}
+
+	return &response, nil
+}
+
 // PRIVATE SECTION

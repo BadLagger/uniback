@@ -196,12 +196,25 @@ func (c *AuthController) AccountsHandler(w http.ResponseWriter, r *http.Request)
 
 	log.Info("Username %s request for accounts", claims.Username)
 
+	accounts, err := c.userRepo.GetAccountsByUsername(r.Context(), claims.Username)
+	if err != nil {
+		log.Critical("DB error: %w", err)
+		http.Error(w, "Failed to get accounts from DB", http.StatusInternalServerError)
+		return
+	}
+
+	jsonData, err := json.Marshal(accounts)
+	if err != nil {
+		log.Critical("Encode accounts to json error: %w", err)
+		http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Authorization", r.Header.Get("Authorization"))
 	w.Header().Set("Content-Type", "application/json")
 
-	json.NewEncoder(w).Encode(map[string]string{
-		"accounts_num": "0",
-	})
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonData)
 }
 
 func (ac *AuthController) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
