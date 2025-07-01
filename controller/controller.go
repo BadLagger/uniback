@@ -311,6 +311,10 @@ func (c *AuthController) WithdrawalHandler(w http.ResponseWriter, r *http.Reques
 	c.transactionRequest(w, r, c.service.WithdrawalTransaction)
 }
 
+func (c *AuthController) TransferHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+
 func (ac *AuthController) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := utils.GlobalLogger()
@@ -402,7 +406,7 @@ func (c *AuthController) transactionRequest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var requestDto dto.DepositRequestDto
+	var requestDto dto.TransactionRequestDto
 
 	err := json.NewDecoder(r.Body).Decode(&requestDto)
 	if err != nil {
