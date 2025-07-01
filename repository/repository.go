@@ -33,6 +33,8 @@ type UserRepository interface {
 	IsAccountExits(ctx context.Context, accountNumber string) (bool, error)
 	CreateAccount(ctx context.Context, acc models.Account) (*dto.AccountResponseDto, error)
 	GetAccountByUsername(ctx context.Context, account string, username string) (*models.Account, error)
+	GetAccountByNumber(ctx context.Context, account string) (*models.Account, error)
 
 	UpdateAccountTransaction(ctx context.Context, acc models.Account, amount float64, fee float64, trsType string) (*models.Account, error)
+	TransferAccountsTransaction(ctx context.Context, src models.Account, dest models.Account, amount float64, fee float64) (*models.Account, error)
 }

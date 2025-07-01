@@ -46,3 +46,14 @@ func (s *TransactionService) WithdrawalTransaction(ctx context.Context, acc mode
 
 	return s.userRepo.UpdateAccountTransaction(ctx, acc, amount, s.cfg.globalFee, "withdrawal")
 }
+
+func (s *TransactionService) TransferTransaction(ctx context.Context, source models.Account, dest models.Account, amount float64) (*models.Account, error) {
+	if (source.Balance - (amount + s.cfg.globalFee)) < 0 {
+		return nil, fmt.Errorf("not enought money for transfer")
+	}
+
+	source.Balance -= (amount + s.cfg.globalFee)
+	dest.Balance += amount
+
+	return s.userRepo.TransferAccountsTransaction(ctx, source, dest, amount, s.cfg.globalFee)
+}

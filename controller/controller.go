@@ -312,7 +312,83 @@ func (c *AuthController) WithdrawalHandler(w http.ResponseWriter, r *http.Reques
 }
 
 func (c *AuthController) TransferHandler(w http.ResponseWriter, r *http.Request) {
+	log := utils.GlobalLogger()
+	log.Info("Get http request for Transaction Account from: %s", r.RemoteAddr)
 
+	if r.Method != http.MethodPost {
+		log.Error("Wrong method!")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value("jwtClaims").(*JWTClaims)
+	if !ok {
+		log.Critical("No jwt claims in context")
+		http.Error(w, "Failed to get claims", http.StatusInternalServerError)
+		return
+	}
+
+	var transferDto dto.TransferRequestDto
+
+	err := json.NewDecoder(r.Body).Decode(&transferDto)
+	if err != nil {
+		log.Error("Json parse error: %w", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := c.validateRequest(w, transferDto); err != nil {
+		return
+	}
+
+	sourceAccount, err := c.userRepo.GetAccountByUsername(r.Context(), transferDto.SourceAccountNumber, claims.Username)
+
+	if err != nil {
+		log.Error("Error confirm account: %w", err)
+		http.Error(w, "Wrong source account number", http.StatusBadRequest)
+		return
+	}
+
+	if sourceAccount.Status != "active" {
+		log.Error("Try to perform trasaction with not active account")
+		http.Error(w, "Try to perform trasaction with not active account", http.StatusBadRequest)
+		return
+	}
+
+	destAccount, err := c.userRepo.GetAccountByNumber(r.Context(), transferDto.DestinationAccountNumber)
+
+	if err != nil {
+		log.Error("Error destination account: %w", err)
+		http.Error(w, "Wrong destination account number", http.StatusBadRequest)
+		return
+	}
+
+	if destAccount.Status != "active" {
+		log.Error("Try to perform trasaction with not active account")
+		http.Error(w, "Try to perform trasaction with not active account", http.StatusBadRequest)
+		return
+	}
+
+	account, err := c.service.TransferTransaction(r.Context(), *sourceAccount, *destAccount, transferDto.Amount)
+
+	if err != nil {
+		log.Error("transaction error: %w", err)
+		http.Error(w, "transaction error", http.StatusBadRequest)
+		return
+	}
+
+	jsonData, err := json.Marshal(dto.AccountToAccountReponseDto(account))
+	if err != nil {
+		log.Critical("Encode accounts to json error: %w", err)
+		http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Authorization", r.Header.Get("Authorization"))
+	w.Header().Set("Content-Type", "application/json")
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonData)
 }
 
 func (ac *AuthController) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
@@ -389,7 +465,7 @@ func (c *AuthController) validateRequest(w http.ResponseWriter, s interface{}) e
 	return nil
 }
 
-func (c *AuthController) transactionRequest(w http.ResponseWriter, r *http.Request, transfer func(ctx context.Context, acc models.Account, amount float64) (*models.Account, error)) {
+func (c *AuthController) transactionRequest(w http.ResponseWriter, r *http.Request, transaction func(ctx context.Context, acc models.Account, amount float64) (*models.Account, error)) {
 	log := utils.GlobalLogger()
 	log.Info("Get http request for Transaction Account from: %s", r.RemoteAddr)
 
@@ -427,7 +503,13 @@ func (c *AuthController) transactionRequest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	account, err = transfer(r.Context(), *account, requestDto.Amount)
+	if account.Status != "active" {
+		log.Error("Try to perform trasaction with not active account")
+		http.Error(w, "Try to perform trasaction with not active account", http.StatusBadRequest)
+		return
+	}
+
+	account, err = transaction(r.Context(), *account, requestDto.Amount)
 
 	if err != nil {
 		log.Error("transaction error: %w", err)

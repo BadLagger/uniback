@@ -42,6 +42,7 @@ func main() {
 	http.HandleFunc("/accounts/new", authController.AuthMiddleware(authController.AccountsCreateHandler))
 	http.HandleFunc("/accounts/deposit", authController.AuthMiddleware(authController.DepositHandler))
 	http.HandleFunc("/accounts/withdrawal", authController.AuthMiddleware(authController.WithdrawalHandler))
+	http.HandleFunc("/accounts/transfer", authController.AuthMiddleware(authController.TransferHandler))
 
 	server := &http.Server{Addr: cfg.HostAddress}
 

@@ -397,4 +397,69 @@ func (r *PostgresRepository) UpdateAccountTransaction(ctx context.Context, acc m
 	return result, nil
 }
 
+func (r *PostgresRepository) TransferAccountsTransaction(ctx context.Context, src models.Account, dest models.Account, amount float64, fee float64) (*models.Account, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec(
+		"UPDATE accounts SET balance = $1 WHERE id = $2",
+		src.Balance, src.Id,
+	)
+
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	_, err = tx.Exec(
+		"UPDATE accounts SET balance = $1 WHERE id = $2",
+		dest.Balance, dest.Id,
+	)
+
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	var transactionId int
+
+	err = tx.QueryRow(
+		"INSERT INTO transactions (account_id, type, amount, fee) VALUES($1, 'transfer', $2, $3) RETURNING id",
+		src.Id,
+		amount,
+		fee,
+	).Scan(&transactionId)
+
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	_, err = tx.Exec(
+		"INSERT INTO transaction_trasfers (trans_id, dest_account_id) VALUES($1, $2)",
+		transactionId, dest.Id,
+	)
+
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := r.GetAccountByNumber(ctx, src.AccountNumber)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+
+}
+
 // PRIVATE SECTION
