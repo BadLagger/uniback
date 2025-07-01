@@ -10,3 +10,9 @@ type Service interface {
 	WithdrawalTransaction(ctx context.Context, acc models.Account, amount float64) (*models.Account, error)
 	TransferTransaction(ctx context.Context, source models.Account, dest models.Account, amount float64) (*models.Account, error)
 }
+
+type CryptoService interface {
+	LoadPgpKeys(public string, private string)
+	PgpEncode(data string) []byte
+	PgpDecode(data string) []byte
+}

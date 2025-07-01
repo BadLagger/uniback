@@ -14,6 +14,9 @@ type Config struct {
 	DbPassword      string
 	DbName          string
 	JwtKey          string
+	HmacKey         string
+	PgpPublicPath   string
+	PgpPrivatePath  string
 	HostAddress     string
 	DbCtxTimeoutSec int
 	DbSslMode       bool
@@ -30,6 +33,9 @@ func CfgLoad(app string) *Config {
 		DbPassword:      getEnv("DB_PASSWORD", "112233"),
 		DbName:          getEnv("DB_NAME", "bank"),
 		JwtKey:          getEnv("JWT_KEY", "mifi_secret_key"),
+		HmacKey:         getEnv("HMAC_KEY", "mifi_hmac_key"),
+		PgpPublicPath:   getEnv("PGP_PUBLIC", "pubkey.asc"),
+		PgpPrivatePath:  getEnv("PGP_PRIVATE", "privkey.asc"),
 		HostAddress:     getEnv("HOST_ADDRESS", ":8089"),
 		DbCtxTimeoutSec: getEnvInt("DB_CTX_TOUT_SEC", 3),
 		DbSslMode:       getEnvBool("DB_SSL_MODE", false),
