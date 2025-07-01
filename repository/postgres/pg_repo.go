@@ -280,10 +280,13 @@ func (r *PostgresRepository) IsAccountExits(ctx context.Context, accountNumber s
 func (r *PostgresRepository) GetAccountByNumber(ctx context.Context, id string) (*models.Account, error) {
 	query := `
 		SELECT
-			id, user_id, account_number, account_type, balance, opening_date, status
+    		a.id, a.user_id, a.account_number, a.account_type, a.balance, a.opening_date, a.status
 		FROM
-			accounts
-		WHERE account_number = $1
+    		accounts a
+    		JOIN users u ON a.user_id = u.id
+		WHERE
+    		u.username = $1 
+    		AND a.account_number = $2 
 	`
 
 	var Account models.Account
@@ -321,6 +324,16 @@ func (r *PostgresRepository) CreateAccount(ctx context.Context, acc models.Accou
 	}
 
 	return dto.AccountToAccountReponseDto(account), nil
+}
+
+func (r *PostgresRepository) GetAccountByUsername(ctx context.Context, username string, account string) *models.Account {
+	query := `
+		SELECT
+			id, user_id, account_number, account_type, balance, opening_date, status
+		FROM
+			accounts
+		WHERE 
+	`
 }
 
 // PRIVATE SECTION

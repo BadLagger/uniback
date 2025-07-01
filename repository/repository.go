@@ -32,4 +32,5 @@ type UserRepository interface {
 	GetAccountsByUsername(ctx context.Context, username string) (*dto.AccountsResponseDto, error)
 	IsAccountExits(ctx context.Context, accountNumber string) (bool, error)
 	CreateAccount(ctx context.Context, acc models.Account) (*dto.AccountResponseDto, error)
+	IsUsernameAccount(ctx context.Context, username string, account string)
 }
