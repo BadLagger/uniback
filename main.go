@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"uniback/controller"
 	"uniback/repository/postgres"
+	"uniback/service"
 	"uniback/utils"
 )
 
@@ -31,12 +32,15 @@ func main() {
 	}
 	defer DataBase.Close()
 
-	authController := controller.NewAuthController(DataBase, cfg.JwtKey)
+	Service := service.NewTransactionService(DataBase)
+
+	authController := controller.NewAuthController(DataBase, Service, cfg.JwtKey)
 	http.HandleFunc("/register", authController.RegistrationHandler)
 	http.HandleFunc("/login", authController.LoginHandler)
 	//
 	http.HandleFunc("/accounts", authController.AuthMiddleware(authController.AccountsHandler))
 	http.HandleFunc("/accounts/new", authController.AuthMiddleware(authController.AccountsCreateHandler))
+	http.HandleFunc("/accounts/deposit", authController.AuthMiddleware(authController.DepositHandler))
 
 	server := &http.Server{Addr: cfg.HostAddress}
 

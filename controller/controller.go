@@ -9,6 +9,7 @@ import (
 	"uniback/dto"
 	"uniback/models"
 	"uniback/repository"
+	"uniback/service"
 	"uniback/utils"
 
 	"github.com/dgrijalva/jwt-go"
@@ -24,12 +25,14 @@ type JWTClaims struct {
 type AuthController struct {
 	validate  validator.Validate
 	userRepo  repository.UserRepository
+	service   service.Service
 	secretKey string
 }
 
-func NewAuthController(u repository.UserRepository, s string) *AuthController {
+func NewAuthController(u repository.UserRepository, sr service.Service, s string) *AuthController {
 	return &AuthController{
 		userRepo:  u,
+		service:   sr,
 		validate:  *validator.New(),
 		secretKey: s,
 	}
@@ -287,6 +290,66 @@ func (c *AuthController) AccountsCreateHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	jsonData, err := json.Marshal(responseDto)
+	if err != nil {
+		log.Critical("Encode accounts to json error: %w", err)
+		http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Authorization", r.Header.Get("Authorization"))
+	w.Header().Set("Content-Type", "application/json")
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonData)
+}
+
+func (c *AuthController) DepositHandler(w http.ResponseWriter, r *http.Request) {
+	log := utils.GlobalLogger()
+	log.Info("Get http request for Deposit Account from: %s", r.RemoteAddr)
+
+	if r.Method != http.MethodPost {
+		log.Error("Wrong method!")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value("jwtClaims").(*JWTClaims)
+	if !ok {
+		log.Critical("No jwt claims in context")
+		http.Error(w, "Failed to get claims", http.StatusInternalServerError)
+		return
+	}
+
+	var requestDto dto.DepositRequestDto
+
+	err := json.NewDecoder(r.Body).Decode(&requestDto)
+	if err != nil {
+		log.Error("Json parse error: %w", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := c.validateRequest(w, requestDto); err != nil {
+		return
+	}
+
+	account, err := c.userRepo.GetAccountByUsername(r.Context(), requestDto.AccountNumber, claims.Username)
+
+	if err != nil {
+		log.Error("Error confirm account: %w", err)
+		http.Error(w, "Wrong account number", http.StatusBadRequest)
+		return
+	}
+
+	account, err = c.service.DepositTransaction(r.Context(), *account, requestDto.Amount)
+
+	if err != nil {
+		log.Error("Deposit transaction error: %w", err)
+		http.Error(w, "Deposit transaction error", http.StatusBadRequest)
+		return
+	}
+
+	jsonData, err := json.Marshal(dto.AccountToAccountReponseDto(account))
 	if err != nil {
 		log.Critical("Encode accounts to json error: %w", err)
 		http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)

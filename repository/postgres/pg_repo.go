@@ -277,20 +277,18 @@ func (r *PostgresRepository) IsAccountExits(ctx context.Context, accountNumber s
 	return true, nil
 }
 
-func (r *PostgresRepository) GetAccountByNumber(ctx context.Context, id string) (*models.Account, error) {
+func (r *PostgresRepository) GetAccountByNumber(ctx context.Context, number string) (*models.Account, error) {
 	query := `
 		SELECT
-    		a.id, a.user_id, a.account_number, a.account_type, a.balance, a.opening_date, a.status
+    		id, user_id, account_number, account_type, balance, opening_date, status
 		FROM
-    		accounts a
-    		JOIN users u ON a.user_id = u.id
+    		accounts
 		WHERE
-    		u.username = $1 
-    		AND a.account_number = $2 
+			account_number = $1
 	`
 
 	var Account models.Account
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	err := r.db.QueryRowContext(ctx, query, number).Scan(
 		&Account.Id,
 		&Account.UserId,
 		&Account.AccountNumber,
@@ -326,14 +324,77 @@ func (r *PostgresRepository) CreateAccount(ctx context.Context, acc models.Accou
 	return dto.AccountToAccountReponseDto(account), nil
 }
 
-func (r *PostgresRepository) GetAccountByUsername(ctx context.Context, username string, account string) *models.Account {
+func (r *PostgresRepository) GetAccountByUsername(ctx context.Context, account string, username string) (*models.Account, error) {
 	query := `
 		SELECT
-			id, user_id, account_number, account_type, balance, opening_date, status
+			a.id, a.user_id, a.account_number, a.account_type, a.balance, a.opening_date, a.status
 		FROM
-			accounts
-		WHERE 
+			accounts a
+			JOIN users u ON a.user_id = u.id
+		WHERE
+			u.username = $1 AND a.account_number = $2
 	`
+
+	var resultAccount models.Account
+
+	err := r.db.QueryRowContext(ctx, query, username, account).Scan(
+		&resultAccount.Id,
+		&resultAccount.UserId,
+		&resultAccount.AccountNumber,
+		&resultAccount.AccountType,
+		&resultAccount.Balance,
+		&resultAccount.OpeningDate,
+		&resultAccount.Status)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &resultAccount, nil
+}
+
+func (r *PostgresRepository) DepositToAccountTransaction(ctx context.Context, acc models.Account, amount float64, fee float64) (*models.Account, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	acc.Balance += amount
+
+	_, err = tx.Exec(
+		"UPDATE accounts SET balance = $1 WHERE id = $2",
+		acc.Balance, acc.Id,
+	)
+
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	_, err = tx.Exec(
+		"INSERT INTO transactions (account_id, type, amount, fee) VALUES($1, 'deposit' , $2, $3)",
+		acc.Id,
+		amount,
+		fee,
+	)
+
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := r.GetAccountByNumber(ctx, acc.AccountNumber)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // PRIVATE SECTION
