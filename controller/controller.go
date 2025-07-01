@@ -1,12 +1,15 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 	"uniback/dto"
+	"uniback/models"
 	"uniback/repository"
+	"uniback/service"
 	"uniback/utils"
 
 	"github.com/dgrijalva/jwt-go"
@@ -16,19 +19,20 @@ import (
 
 type JWTClaims struct {
 	Username string
-	UserID   int
 	jwt.StandardClaims
 }
 
 type AuthController struct {
 	validate  validator.Validate
 	userRepo  repository.UserRepository
+	service   service.Service
 	secretKey string
 }
 
-func NewAuthController(u repository.UserRepository, s string) *AuthController {
+func NewAuthController(u repository.UserRepository, sr service.Service, s string) *AuthController {
 	return &AuthController{
 		userRepo:  u,
+		service:   sr,
 		validate:  *validator.New(),
 		secretKey: s,
 	}
@@ -151,7 +155,6 @@ func (c *AuthController) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, JWTClaims{
 		Username: userFromDb.Name,
-		UserID:   userFromDb.ID,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
 			IssuedAt:  time.Now().Unix(),
@@ -175,6 +178,262 @@ func (c *AuthController) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		"message": "successful",
 		"user":    user.Username,
 	})
+}
+
+func (c *AuthController) AccountsHandler(w http.ResponseWriter, r *http.Request) {
+	log := utils.GlobalLogger()
+
+	log.Info("Get http request for Account from: %s", r.RemoteAddr)
+
+	if r.Method != http.MethodGet {
+		log.Error("Wrong method!")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value("jwtClaims").(*JWTClaims)
+	if !ok {
+		log.Critical("No jwt claims in context")
+		http.Error(w, "Failed to get claims", http.StatusInternalServerError)
+		return
+	}
+
+	log.Info("Username %s request for accounts", claims.Username)
+
+	accounts, err := c.userRepo.GetAccountsByUsername(r.Context(), claims.Username)
+	if err != nil {
+		log.Critical("DB error: %w", err)
+		http.Error(w, "Failed to get accounts from DB", http.StatusInternalServerError)
+		return
+	}
+
+	jsonData, err := json.Marshal(accounts)
+	if err != nil {
+		log.Critical("Encode accounts to json error: %w", err)
+		http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Authorization", r.Header.Get("Authorization"))
+	w.Header().Set("Content-Type", "application/json")
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonData)
+}
+
+func (c *AuthController) AccountsCreateHandler(w http.ResponseWriter, r *http.Request) {
+	log := utils.GlobalLogger()
+	log.Info("Get http request for Createnig Account from: %s", r.RemoteAddr)
+
+	if r.Method != http.MethodPost {
+		log.Error("Wrong method!")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value("jwtClaims").(*JWTClaims)
+	if !ok {
+		log.Critical("No jwt claims in context")
+		http.Error(w, "Failed to get claims", http.StatusInternalServerError)
+		return
+	}
+
+	var accountRequest dto.AccountCreateRequestDto
+
+	err := json.NewDecoder(r.Body).Decode(&accountRequest)
+	if err != nil {
+		log.Error("Json parse error: %w", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err = c.validateRequest(w, accountRequest); err != nil {
+		return
+	}
+
+	userId, err := c.userRepo.GetUserId(r.Context(), claims.Username)
+
+	if err != nil {
+		log.Error("Can't get user id from DB: %w", err)
+		http.Error(w, "Failed to get user id from DB", http.StatusBadRequest)
+		return
+	}
+
+	newAccountNumber := models.GenerateAccount()
+	for {
+		isExists, err := c.userRepo.IsAccountExits(r.Context(), newAccountNumber)
+
+		if err != nil {
+			log.Critical("Can't check account existence in DB: %w", err)
+			http.Error(w, "Can't check account existence in DB", http.StatusInternalServerError)
+			return
+		}
+
+		if !isExists {
+			break
+		}
+		newAccountNumber = models.GenerateAccount()
+	}
+
+	log.Debug("Cenerate new number: %s", newAccountNumber)
+
+	responseDto, err := c.userRepo.CreateAccount(r.Context(), models.Account{
+		UserId:        userId,
+		AccountNumber: newAccountNumber,
+		AccountType:   accountRequest.AccountType,
+		Status:        "active",
+	})
+
+	if err != nil {
+		log.Error("Create Account error: %w", err)
+		http.Error(w, "Can't create account!", http.StatusBadRequest)
+	}
+
+	jsonData, err := json.Marshal(responseDto)
+	if err != nil {
+		log.Critical("Encode accounts to json error: %w", err)
+		http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Authorization", r.Header.Get("Authorization"))
+	w.Header().Set("Content-Type", "application/json")
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonData)
+}
+
+func (c *AuthController) DepositHandler(w http.ResponseWriter, r *http.Request) {
+	c.transactionRequest(w, r, c.service.DepositTransaction)
+}
+
+func (c *AuthController) WithdrawalHandler(w http.ResponseWriter, r *http.Request) {
+	c.transactionRequest(w, r, c.service.WithdrawalTransaction)
+}
+
+func (c *AuthController) TransferHandler(w http.ResponseWriter, r *http.Request) {
+	log := utils.GlobalLogger()
+	log.Info("Get http request for Transaction Account from: %s", r.RemoteAddr)
+
+	if r.Method != http.MethodPost {
+		log.Error("Wrong method!")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value("jwtClaims").(*JWTClaims)
+	if !ok {
+		log.Critical("No jwt claims in context")
+		http.Error(w, "Failed to get claims", http.StatusInternalServerError)
+		return
+	}
+
+	var transferDto dto.TransferRequestDto
+
+	err := json.NewDecoder(r.Body).Decode(&transferDto)
+	if err != nil {
+		log.Error("Json parse error: %w", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := c.validateRequest(w, transferDto); err != nil {
+		return
+	}
+
+	sourceAccount, err := c.userRepo.GetAccountByUsername(r.Context(), transferDto.SourceAccountNumber, claims.Username)
+
+	if err != nil {
+		log.Error("Error confirm account: %w", err)
+		http.Error(w, "Wrong source account number", http.StatusBadRequest)
+		return
+	}
+
+	if sourceAccount.Status != "active" {
+		log.Error("Try to perform trasaction with not active account")
+		http.Error(w, "Try to perform trasaction with not active account", http.StatusBadRequest)
+		return
+	}
+
+	destAccount, err := c.userRepo.GetAccountByNumber(r.Context(), transferDto.DestinationAccountNumber)
+
+	if err != nil {
+		log.Error("Error destination account: %w", err)
+		http.Error(w, "Wrong destination account number", http.StatusBadRequest)
+		return
+	}
+
+	if destAccount.Status != "active" {
+		log.Error("Try to perform trasaction with not active account")
+		http.Error(w, "Try to perform trasaction with not active account", http.StatusBadRequest)
+		return
+	}
+
+	account, err := c.service.TransferTransaction(r.Context(), *sourceAccount, *destAccount, transferDto.Amount)
+
+	if err != nil {
+		log.Error("transaction error: %w", err)
+		http.Error(w, "transaction error", http.StatusBadRequest)
+		return
+	}
+
+	jsonData, err := json.Marshal(dto.AccountToAccountReponseDto(account))
+	if err != nil {
+		log.Critical("Encode accounts to json error: %w", err)
+		http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Authorization", r.Header.Get("Authorization"))
+	w.Header().Set("Content-Type", "application/json")
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonData)
+}
+
+func (ac *AuthController) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log := utils.GlobalLogger()
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			log.Error("No autorization token")
+			http.Error(w, "Authorization header is required", http.StatusUnauthorized)
+			return
+		}
+
+		tokenString := authHeader[len("Bearer "):]
+		claims := &JWTClaims{}
+
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+			return []byte(ac.secretKey), nil
+		})
+
+		log.Debug("Username from token: %s", claims.Username)
+
+		if err != nil || !token.Valid {
+			log.Error("Invalid token")
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		isUser, err := ac.userRepo.IsUserExists(r.Context(), claims.Username)
+
+		if err != nil {
+			log.Critical("DB Error: %w", err)
+			http.Error(w, "DB Error", http.StatusInternalServerError)
+			return
+		}
+
+		if !isUser {
+			log.Error("Wrong token from user %s", claims.Username)
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "jwtClaims", claims)
+
+		next(w, r.WithContext(ctx))
+	}
 }
 
 func (c *AuthController) validateRequest(w http.ResponseWriter, s interface{}) error {
@@ -204,4 +463,70 @@ func (c *AuthController) validateRequest(w http.ResponseWriter, s interface{}) e
 		return err
 	}
 	return nil
+}
+
+func (c *AuthController) transactionRequest(w http.ResponseWriter, r *http.Request, transaction func(ctx context.Context, acc models.Account, amount float64) (*models.Account, error)) {
+	log := utils.GlobalLogger()
+	log.Info("Get http request for Transaction Account from: %s", r.RemoteAddr)
+
+	if r.Method != http.MethodPost {
+		log.Error("Wrong method!")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value("jwtClaims").(*JWTClaims)
+	if !ok {
+		log.Critical("No jwt claims in context")
+		http.Error(w, "Failed to get claims", http.StatusInternalServerError)
+		return
+	}
+
+	var requestDto dto.TransactionRequestDto
+
+	err := json.NewDecoder(r.Body).Decode(&requestDto)
+	if err != nil {
+		log.Error("Json parse error: %w", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := c.validateRequest(w, requestDto); err != nil {
+		return
+	}
+
+	account, err := c.userRepo.GetAccountByUsername(r.Context(), requestDto.AccountNumber, claims.Username)
+
+	if err != nil {
+		log.Error("Error confirm account: %w", err)
+		http.Error(w, "Wrong account number", http.StatusBadRequest)
+		return
+	}
+
+	if account.Status != "active" {
+		log.Error("Try to perform trasaction with not active account")
+		http.Error(w, "Try to perform trasaction with not active account", http.StatusBadRequest)
+		return
+	}
+
+	account, err = transaction(r.Context(), *account, requestDto.Amount)
+
+	if err != nil {
+		log.Error("transaction error: %w", err)
+		http.Error(w, "transaction error", http.StatusBadRequest)
+		return
+	}
+
+	jsonData, err := json.Marshal(dto.AccountToAccountReponseDto(account))
+	if err != nil {
+		log.Critical("Encode accounts to json error: %w", err)
+		http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Authorization", r.Header.Get("Authorization"))
+	w.Header().Set("Content-Type", "application/json")
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonData)
 }
