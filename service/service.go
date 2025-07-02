@@ -12,7 +12,6 @@ type Service interface {
 }
 
 type CryptoService interface {
-	LoadPgpKeys(public string, private string)
 	PgpEncode(data string) []byte
 	PgpDecode(data string) []byte
 }
