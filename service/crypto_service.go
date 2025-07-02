@@ -1,9 +1,14 @@
 package service
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rand"
+	"fmt"
+	"io"
+	"math/big"
 	"os"
+	"strconv"
 	"time"
 	"uniback/utils"
 
@@ -158,11 +163,56 @@ func (s *PgpHmacService) createNewPgp() error {
 }
 
 func (cs *PgpHmacService) PgpEncode(data string) []byte {
-	return nil
+	var encryptedBuf bytes.Buffer
+
+	armorWriter, _ := armor.Encode(&encryptedBuf, "PGP MESSAGE", nil)
+	encryptWriter, _ := openpgp.Encrypt(armorWriter, []*openpgp.Entity{&cs.pgpPublicKey}, nil, nil, nil)
+
+	encryptWriter.Write([]byte(data))
+	encryptWriter.Close()
+	armorWriter.Close()
+
+	return encryptedBuf.Bytes()
 }
 
-func (cs *PgpHmacService) PgpDecode(data string) []byte {
-	return nil
+func (cs *PgpHmacService) PgpDecode(data []byte) string {
+	encryptedBuf := bytes.NewBuffer(data)
+
+	block, _ := armor.Decode(bytes.NewReader(encryptedBuf.Bytes()))
+	keyRing := &openpgp.EntityList{&cs.pgpPrivateKey}
+	md, _ := openpgp.ReadMessage(block.Body, keyRing, nil, nil)
+	decrypted, _ := io.ReadAll(md.UnverifiedBody)
+	return string(decrypted)
+}
+
+func (cs *PgpHmacService) GenerateCardLuhn() (string, error) {
+	prefix := "2" // Карты "Мир" начинаются с 2
+	length := 16  // Стандартная длина номера карты
+
+	// Генерируем случайные цифры (кроме последней)
+	randomPartLength := length - len(prefix) - 1
+	randomPart := ""
+	for i := 0; i < randomPartLength; i++ {
+		num, err := rand.Int(rand.Reader, big.NewInt(10))
+		if err != nil {
+			return "", fmt.Errorf("Random number gen error: %v", err)
+		}
+		randomPart += num.String()
+	}
+
+	// Собираем номер без последней цифры
+	partialNumber := prefix + randomPart
+
+	// Вычисляем контрольную цифру по алгоритму Луна
+	checkDigit := calculateLuhnCheckDigit(partialNumber)
+
+	// Возвращаем полный номер карты
+	return partialNumber + strconv.Itoa(checkDigit), nil
+}
+
+func (cs *PgpHmacService) GenerateCvv() string {
+	n, _ := rand.Int(rand.Reader, big.NewInt(1000))
+	return fmt.Sprintf("%03d", n)
 }
 
 func (s *PgpHmacService) readKey(fPath string) (*openpgp.Entity, error) {
@@ -184,4 +234,23 @@ func (s *PgpHmacService) readKey(fPath string) (*openpgp.Entity, error) {
 		return nil, err
 	}
 	return entity, nil
+}
+
+func calculateLuhnCheckDigit(number string) int {
+	sum := 0
+
+	for i := 0; i < len(number); i++ {
+		digit, _ := strconv.Atoi(string(number[len(number)-1-i]))
+
+		if i%2 == 0 {
+			digit *= 2
+			if digit > 9 {
+				digit = digit/10 + digit%10
+			}
+		}
+
+		sum += digit
+	}
+
+	return (10 - (sum % 10)) % 10
 }

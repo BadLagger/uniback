@@ -393,8 +393,101 @@ func (c *AuthController) TransferHandler(w http.ResponseWriter, r *http.Request)
 	w.Write(jsonData)
 }
 
-func (ac *AuthController) NewCardHandler(w http.ResponseWriter, r *http.Request) {
+func (c *AuthController) NewCardHandler(w http.ResponseWriter, r *http.Request) {
+	log := utils.GlobalLogger()
+	log.Info("Get http request for Create New Card from: %s", r.RemoteAddr)
 
+	if r.Method != http.MethodPost {
+		log.Error("Wrong method!")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value("jwtClaims").(*JWTClaims)
+	if !ok {
+		log.Critical("No jwt claims in context")
+		http.Error(w, "Failed to get claims", http.StatusInternalServerError)
+		return
+	}
+
+	var newCardRequest dto.CardCreateRequestDto
+
+	err := json.NewDecoder(r.Body).Decode(&newCardRequest)
+	if err != nil {
+		log.Error("Json parse error: %w", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := c.validateRequest(w, newCardRequest); err != nil {
+		return
+	}
+
+	cardAccount, err := c.userRepo.GetAccountByUsername(r.Context(), newCardRequest.AccountNumber, claims.Username)
+
+	if err != nil {
+		log.Error("Error confirm account: %w", err)
+		http.Error(w, "Wrong source account number", http.StatusBadRequest)
+		return
+	}
+
+	userId, err := c.userRepo.GetUserId(r.Context(), claims.Username)
+	if err != nil {
+		log.Error("Error getting userid: %w", err)
+		http.Error(w, "Bad user ID", http.StatusBadRequest)
+		return
+	}
+
+	log.Debug("Card account: %s", cardAccount.AccountNumber)
+	log.Debug("Card account id: %d", cardAccount.Id)
+	log.Debug("UserId: %d", userId)
+
+	var newLuhnNumber string
+	var secureLuhnNumber []byte
+
+	for {
+		newLuhnNumber, err = c.cryptoService.GenerateCardLuhn()
+		if err != nil {
+			log.Error("Error generate Luhn number: %w", err)
+			http.Error(w, "Error generate Luhn number", http.StatusInternalServerError)
+			return
+		}
+		secureLuhnNumber = c.cryptoService.PgpEncode(newLuhnNumber)
+
+		isExist, err := c.userRepo.IsCardExists(r.Context(), secureLuhnNumber)
+		if err != nil {
+			log.Error("Can't read cards from DB: %w", err)
+			return
+		}
+
+		if !isExist {
+			break
+		}
+	}
+
+	currentTime := time.Now()
+	expiredTime := time.Now().AddDate(5, 0, 0)
+	secureExpiredTime := c.cryptoService.PgpEncode(expiredTime.String())
+
+	newCvv := c.cryptoService.GenerateCvv()
+	secureCvv := c.cryptoService.PgpEncode(newCvv)
+
+	err = c.userRepo.CreateNewCard(r.Context(), models.Card{
+		AccountId: cardAccount.Id,
+		Number:    secureLuhnNumber,
+		Expiry:    secureExpiredTime,
+		Cvv:       secureCvv,
+		CreatedAt: currentTime,
+	})
+
+	if err != nil {
+		log.Error("Can't save card: %w", err)
+		http.Error(w, "Cant save card in DB", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Authorization", r.Header.Get("Authorization"))
+	w.WriteHeader(http.StatusOK)
 }
 
 func (ac *AuthController) ShowCardsHandler(w http.ResponseWriter, r *http.Request) {

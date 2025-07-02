@@ -13,5 +13,7 @@ type Service interface {
 
 type CryptoService interface {
 	PgpEncode(data string) []byte
-	PgpDecode(data string) []byte
+	PgpDecode(data []byte) string
+	GenerateCardLuhn() (string, error)
+	GenerateCvv() string
 }

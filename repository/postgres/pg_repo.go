@@ -462,4 +462,35 @@ func (r *PostgresRepository) TransferAccountsTransaction(ctx context.Context, sr
 
 }
 
+func (r *PostgresRepository) IsCardExists(ctx context.Context, number []byte) (bool, error) {
+	query := `
+		SELECT COUNT(*) FROM cards WHERE number = $1
+	`
+
+	var count int
+
+	err := r.db.QueryRowContext(ctx, query, number).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	if count == 0 {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (r *PostgresRepository) CreateNewCard(ctx context.Context, card models.Card) error {
+	query := `
+		INSERT INTO 
+			cards (account_id, number, expiry, cvv, created_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+
+	_, err := r.db.ExecContext(ctx, query, card.AccountId, card.Number, card.Expiry, card.Cvv, card.CreatedAt)
+
+	return err
+}
+
 // PRIVATE SECTION
