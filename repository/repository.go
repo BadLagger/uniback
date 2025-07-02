@@ -37,4 +37,7 @@ type UserRepository interface {
 
 	UpdateAccountTransaction(ctx context.Context, acc models.Account, amount float64, fee float64, trsType string) (*models.Account, error)
 	TransferAccountsTransaction(ctx context.Context, src models.Account, dest models.Account, amount float64, fee float64) (*models.Account, error)
+
+	IsCardExists(ctx context.Context, number []byte) (bool, error)
+	CreateNewCard(ctx context.Context, card models.Card) error
 }

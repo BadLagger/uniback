@@ -34,7 +34,14 @@ func main() {
 
 	Service := service.NewTransactionService(DataBase)
 
-	authController := controller.NewAuthController(DataBase, Service, cfg.JwtKey)
+	CryptoService := service.NewPgpHmacService(service.PgpHmacConfgiFromGlobalConfig(cfg))
+
+	if CryptoService == nil {
+		logger.Critical("CryptoService init fail!!")
+		return
+	}
+
+	authController := controller.NewAuthController(DataBase, CryptoService, Service, cfg.JwtKey)
 	http.HandleFunc("/register", authController.RegistrationHandler)
 	http.HandleFunc("/login", authController.LoginHandler)
 	//
@@ -43,6 +50,14 @@ func main() {
 	http.HandleFunc("/accounts/deposit", authController.AuthMiddleware(authController.DepositHandler))
 	http.HandleFunc("/accounts/withdrawal", authController.AuthMiddleware(authController.WithdrawalHandler))
 	http.HandleFunc("/accounts/transfer", authController.AuthMiddleware(authController.TransferHandler))
+	//
+	http.HandleFunc("/cards", authController.AuthMiddleware(authController.ShowCardsHandler))
+	http.HandleFunc("/cards/new", authController.AuthMiddleware(authController.NewCardHandler))
+	//
+	http.HandleFunc("/credits", authController.AuthMiddleware(authController.ShowCreditsHanlder))
+	http.HandleFunc("/credits/new", authController.AuthMiddleware(authController.NewCreditHandler))
+	//
+	http.HandleFunc("/analytics", authController.AuthMiddleware(authController.AnalyticsHanlder))
 
 	server := &http.Server{Addr: cfg.HostAddress}
 
