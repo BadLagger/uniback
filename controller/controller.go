@@ -393,6 +393,26 @@ func (c *AuthController) TransferHandler(w http.ResponseWriter, r *http.Request)
 	w.Write(jsonData)
 }
 
+func (ac *AuthController) NewCardHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (ac *AuthController) ShowCardsHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (ac *AuthController) ShowCreditsHanlder(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "Service not implemented yet", http.StatusNotImplemented)
+}
+
+func (ac *AuthController) NewCreditHandler(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "Service not implemented yet", http.StatusNotImplemented)
+}
+
+func (ac *AuthController) AnalyticsHanlder(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "Service not implemented yet", http.StatusNotImplemented)
+}
+
 func (ac *AuthController) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := utils.GlobalLogger()
