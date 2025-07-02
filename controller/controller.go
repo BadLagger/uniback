@@ -23,18 +23,20 @@ type JWTClaims struct {
 }
 
 type AuthController struct {
-	validate  validator.Validate
-	userRepo  repository.UserRepository
-	service   service.Service
-	secretKey string
+	validate      validator.Validate
+	userRepo      repository.UserRepository
+	service       service.Service
+	cryptoService service.CryptoService
+	secretKey     string
 }
 
-func NewAuthController(u repository.UserRepository, sr service.Service, s string) *AuthController {
+func NewAuthController(u repository.UserRepository, cs service.CryptoService, sr service.Service, s string) *AuthController {
 	return &AuthController{
-		userRepo:  u,
-		service:   sr,
-		validate:  *validator.New(),
-		secretKey: s,
+		userRepo:      u,
+		service:       sr,
+		cryptoService: cs,
+		validate:      *validator.New(),
+		secretKey:     s,
 	}
 }
 

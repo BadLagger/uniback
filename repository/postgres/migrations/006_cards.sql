@@ -4,5 +4,5 @@ CREATE TABLE cards (
     number BYTEA NOT NULL,
     expiry BYTEA NOT NULL,
     cvv BYTEA NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

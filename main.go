@@ -34,7 +34,14 @@ func main() {
 
 	Service := service.NewTransactionService(DataBase)
 
-	authController := controller.NewAuthController(DataBase, Service, cfg.JwtKey)
+	CryptoService := service.NewPgpHmacService(service.PgpHmacConfgiFromGlobalConfig(cfg))
+
+	if CryptoService == nil {
+		logger.Critical("CryptoService init fail!!")
+		return
+	}
+
+	authController := controller.NewAuthController(DataBase, CryptoService, Service, cfg.JwtKey)
 	http.HandleFunc("/register", authController.RegistrationHandler)
 	http.HandleFunc("/login", authController.LoginHandler)
 	//

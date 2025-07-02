@@ -68,6 +68,22 @@ func NewPgpHmacService(cfg *PgpHmacConfig) *PgpHmacService {
 		}
 	}
 
+	key, err := newService.readKey(cfg.pgpPublicFile)
+	if err != nil {
+		log.Critical("Can't read public key: %w", err)
+		return nil
+	}
+
+	newService.pgpPublicKey = *key
+
+	key, err = newService.readKey(cfg.pgpPrivateFile)
+	if err != nil {
+		log.Critical("Can't read private key: %w", err)
+		return nil
+	}
+
+	newService.pgpPrivateKey = *key
+
 	return &newService
 }
 
@@ -75,6 +91,7 @@ func (s *PgpHmacService) createNewPgp() error {
 
 	log := utils.GlobalLogger()
 
+	log.Info("Try to create new PGP")
 	keyConfig := &packet.Config{
 		DefaultHash:   crypto.SHA256,        // Алгоритм хеширования
 		DefaultCipher: packet.CipherAES256,  // Шифрование приватного ключа
@@ -85,7 +102,7 @@ func (s *PgpHmacService) createNewPgp() error {
 	}
 
 	entity, err := openpgp.NewEntity(
-		"Name (Comment)",    // Имя
+		"Uniback",           // Имя
 		"",                  // Комментарий (опционально)
 		"email@example.com", // Email
 		keyConfig,
@@ -115,7 +132,7 @@ func (s *PgpHmacService) createNewPgp() error {
 		return err
 	}
 
-	privKeyFile, err := os.Create(openpgp.PrivateKeyType)
+	privKeyFile, err := os.Create(s.cfg.pgpPrivateFile)
 	if err != nil {
 		log.Critical("Can't private key file: %w", err)
 		return err
@@ -135,6 +152,16 @@ func (s *PgpHmacService) createNewPgp() error {
 		return err
 	}
 
+	log.Info("New PGP created OK!!!")
+
+	return nil
+}
+
+func (cs *PgpHmacService) PgpEncode(data string) []byte {
+	return nil
+}
+
+func (cs *PgpHmacService) PgpDecode(data string) []byte {
 	return nil
 }
 
