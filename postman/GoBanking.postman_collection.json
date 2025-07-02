@@ -1,0 +1,163 @@
+{
+	"info": {
+		"_postman_id": "79a2b556-ee28-4dff-8322-e1089b051e15",
+		"name": "GoBanking",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "44403262"
+	},
+	"item": [
+		{
+			"name": "registration",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"username\": \"FirstOne\",\r\n    \"password\": \"123user\",\r\n    \"email\": \"mycool@mail.com\",\r\n    \"phone\": \"+79993332255\"\r\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8089/register",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8089",
+					"path": [
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "login",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"username\": \"FirstOne\",\r\n    \"password\": \"123user\"\r\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8089/login",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8089",
+					"path": [
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "accounts",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJVc2VybmFtZSI6IkZpcnN0T25lIiwiZXhwIjoxNzUxNDAzNzE1LCJpYXQiOjE3NTEzMTczMTV9.wuyd9LAr_mNYHcXsTBKDMfocVf3jHblrwBUvJ005KMY",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8089/accounts",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8089",
+					"path": [
+						"accounts"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "accounts/new",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJVc2VybmFtZSI6IkZpcnN0T25lIiwiZXhwIjoxNzUxNDAzNzE1LCJpYXQiOjE3NTEzMTczMTV9.wuyd9LAr_mNYHcXsTBKDMfocVf3jHblrwBUvJ005KMY",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"account_type\": \"debit\"\r\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8089/accounts/new",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8089",
+					"path": [
+						"accounts",
+						"new"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "cards/new",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJVc2VybmFtZSI6IkZpcnN0T25lIiwiZXhwIjoxNzUxNTQ1OTUwLCJpYXQiOjE3NTE0NTk1NTB9.bar2T-xhiwhpbk1M4AOyWtv0D08SgDFMK4FHup_W3YM",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"account_number\": \"40881066752914644069\"\r\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8089/cards/new",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8089",
+					"path": [
+						"cards",
+						"new"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
